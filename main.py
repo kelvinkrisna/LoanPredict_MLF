@@ -1,39 +1,42 @@
 from flask import Flask, request, jsonify
-import joblib
-import pandas as pd
+import pickle
+import numpy as np
+import xgboost as xgb
 
-# Initialize Flask app
+# Initialize the Flask app
 app = Flask(__name__)
 
-# Load the pre-trained model
-model = joblib.load("assignment_model.pkl")  # Replace with your model file
+# Load the pre-trained model (assuming it's a Scikit-Learn model saved as a .pkl file)
+with open("FinalModel.pkl", "rb") as file:
+    model = pickle.load(file)
 
-# Define API endpoint for loan validation
-@app.route('/approve_loan', methods=['POST'])
-def validate_loan():
-    try:
-        # Parse JSON data from the request
-        data = request.get_json()
+# Define a route to check the server status
+@app.route("/", methods=["GET"])
+def home():
+    return "Welcome to the Machine Learning Model API!"
 
-        # Convert JSON data to a DataFrame (assumes data is a dictionary of key-value pairs)
-        df = pd.DataFrame([data])
+# Define the prediction endpoint
+@app.route("/predict", methods=["POST"])
+def predict():
+    # Get the JSON data from the request
+    data = request.get_json()
 
-        # Predict using the loaded model
-        prediction = model.predict(df)
-        probability = model.predict_proba(df)[:, 1]  # Probability of positive class if supported
+    # Extract feature values from the JSON data
+    features = np.array(data["features"]).reshape(1, -1)
 
-        # Translate prediction to meaningful response
-        response = {
-            "loan_status": "Accepted" if prediction[0] == 1 else "Rejected",
-            "probability": float(probability[0])
-        }
-
-        return jsonify(response), 200
-
-    except Exception as e:
-        # Handle exceptions
-        return jsonify({"error": str(e)}), 400
+    # Perform inference using the pre-trained model
+    prediction = model.predict(features)
+    print(prediction[0])
+    if prediction[0] == 1:
+        returnPrediction = 'Loan has been automatically approved'
+    else:
+        returnPrediction = 'Loan has not been automatically approved, we will revise this manually'
+    # Return the prediction result as JSON
+    return jsonify({
+        "prediction": returnPrediction
+    })
 
 # Run the Flask app
-if __name__ == '__main__':
+if __name__ == "__main__":
     app.run(debug=True)
+
